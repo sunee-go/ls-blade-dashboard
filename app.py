@@ -20,7 +20,7 @@ st.markdown("""
     .kpi-card-safe { background-color: #F0FDF4; border-left: 5px solid #22C55E; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
     .kpi-card-danger { background-color: #FEF2F2; border-left: 5px solid #EF4444; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
     .kpi-card-warning { background-color: #FFFBEB; border-left: 5px solid #F59E0B; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
-    .kpi-title { font-size: 22px; font-weight: bold; color: #0F172A; }
+    fig_od.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1], font=dict(size=20)))
     .kpi-value { font-size: 20px; font-weight: bold; color: #1E293B; }
     .kpi-sub { font-size: 13px; color: #475569; }
 </style>
