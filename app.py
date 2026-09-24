@@ -27,31 +27,54 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 2. Advanced Google Sheet Data Loader
+# 2. Advanced Google Sheet Data Loader & Mapper
 # ---------------------------------------------------------
 SHEET_ID = "1LCtzIdzBd4MGjKDV06Vl2rX-uy5rdZnQmNvaB72WpX0"
-# เปลียนมาดึงเป็นนามสกุล xlsx แทนเพื่อให้ดึงข้อมูลได้ทุก Tabs
 EXCEL_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=xlsx"
+
+def format_set_name(machine, set_no, color, thickness):
+    """ฟังก์ชันจับคู่เลขชุดใบมีดและสี ให้ตรงกับ Master List เพื่อป้องกันยอดรวมปนกัน"""
+    s = str(set_no).strip()
+    c = str(color).strip()
+    t = str(thickness).strip()
+    
+    if machine == 'LS-06':
+        # แยกชุด บน/กลาง/ล่าง จากสีใบมีด
+        if s == '1-20':
+            if 'แดง' in c or 'Red' in c: return '1-20 (ชุดบน)'
+            if 'ดำ' in c or 'Black' in c: return '1-20 (ชุดกลาง)'
+            if 'เขียว' in c or 'Green' in c: return '1-20 (ชุดล่าง)'
+        elif s == '21-40':
+            if 'เหลือง' in c or 'Yellow' in c: return '21-40 (ชุดบน)'
+            if 'แดง' in c or 'Red' in c: return '21-40 (ชุดกลาง)'
+            if 'ขาว' in c or 'white' in c: return '21-40 (ชุดล่าง)'
+        elif s == '41-60':
+            if 'ขาว' in c or 'white' in c: return '41-60 (ชุดบน)'
+            if 'เขียว' in c or 'Green' in c: return '41-60 (ชุดกลาง)'
+            if 'เหลือง' in c or 'Yellow' in c: return '41-60 (ชุดล่าง)'
+        elif s == '61-80':
+            return '61-80 (ชุดบน)'
+            
+    elif machine == 'LS-08':
+        # แยกจากความหนา
+        if '5' in t: return f"{s} (5 mm.)"
+        if '7' in t: return f"{s} (7 mm.)"
+        
+    return s
 
 @st.cache_data(ttl=60)
 def load_data():
     try:
-        # อ่านไฟล์ Excel โดยดึงทุก Sheet และข้าม 3 บรรทัดบน (skiprows=3) เพื่อให้บรรทัดที่ 4 เป็นหัวตาราง
         xls = pd.read_excel(EXCEL_URL, sheet_name=None, skiprows=3, engine='openpyxl')
-        
         processed_data = []
         
         for sheet_name, df in xls.items():
-            # เลือกเฉพาะชีตที่มีชื่อขึ้นต้นด้วย LS- (ป้องกันการดึงชีตเปล่ามา)
-            if not str(sheet_name).startswith("LS-"):
-                continue
-                
+            if not str(sheet_name).startswith("LS-"): continue
             df.columns = [str(c).strip() for c in df.columns]
             
-            # Map ชื่อคอลัมน์ภาษาไทยให้ตรงกับตัวแปรที่ระบบต้องการ
             col_map = {}
             for c in df.columns:
-                if 'หมายเลข' in c: col_map[c] = 'Set_No'
+                if 'หมายเลข' in c: col_map[c] = 'Raw_Set_No'
                 elif 'ชุดสี' in c: col_map[c] = 'Color'
                 elif 'หนา' in c: col_map[c] = 'Thickness_mm'
                 elif 'OD หลังเจียร์' in c: col_map[c] = 'OD'
@@ -59,62 +82,80 @@ def load_data():
                 
             df = df.rename(columns=col_map)
             
-            # ถ้าชีตนั้นไม่มีข้อมูลเลขชุดใบมีด หรือ ค่า OD ให้ข้ามไป
-            if 'Set_No' not in df.columns or 'OD' not in df.columns:
-                continue
-                
-            # ลบแถวว่างทิ้ง
-            df = df.dropna(subset=['Set_No'])
-            df['Set_No'] = df['Set_No'].astype(str).str.strip()
-            df = df[df['Set_No'] != 'nan']
-            df = df[df['Set_No'] != '']
+            if 'Raw_Set_No' not in df.columns or 'OD' not in df.columns: continue
             
+            df = df.dropna(subset=['Raw_Set_No', 'OD'])
+            df['Raw_Set_No'] = df['Raw_Set_No'].astype(str).str.strip()
+            df = df[df['Raw_Set_No'] != 'nan']
+            df = df[df['Raw_Set_No'] != '']
             df['OD'] = pd.to_numeric(df['OD'], errors='coerce')
-            df = df.dropna(subset=['OD']) # ตัดแถวที่เจียรแต่ยังไม่ลงค่า OD ออก
+            df = df.dropna(subset=['OD'])
             
-            # หัวใจสำคัญ: จัดกลุ่ม (Group by) เพื่อ "นับรอบเจียร" และ "ดึงค่า OD ล่าสุด"
+            machine_name = sheet_name.strip().upper()
+            df['Color'] = df.get('Color', '')
+            df['Thickness_mm'] = df.get('Thickness_mm', '')
+            
+            # ใช้งานฟังก์ชันจัดรูปแบบชื่อชุดใบมีด
+            df['Set_No'] = df.apply(lambda row: format_set_name(machine_name, row['Raw_Set_No'], row['Color'], row['Thickness_mm']), axis=1)
+            
             agg_args = {
-                'Grind_Count': ('OD', 'count'),  # นับจำนวนบรรทัด = รอบที่เจียร
-                'Latest_OD': ('OD', 'last')      # ดึงค่า OD บรรทัดล่างสุด
+                'OD': ('OD', 'last'),          
+                'Raw_Set_No': ('OD', 'count'), # ใช้นับจำนวนบรรทัด = รอบที่ส่งเจียร
+                'Color': ('Color', 'last'),
+                'Thickness_mm': ('Thickness_mm', 'last'),
             }
-            if 'Color' in df.columns: agg_args['Color'] = ('Color', 'last')
-            if 'Thickness_mm' in df.columns: agg_args['Thickness_mm'] = ('Thickness_mm', 'last')
             if 'Inspector' in df.columns: agg_args['Inspector'] = ('Inspector', 'last')
             
             grouped = df.groupby('Set_No').agg(**agg_args).reset_index()
+            grouped = grouped.rename(columns={'OD': 'Latest_OD', 'Raw_Set_No': 'Grind_Count'})
             
-            grouped['Machine'] = sheet_name.strip().upper()
-            grouped['OD_MIN'] = 130.0 if '08' in sheet_name else 288.0
+            grouped['Machine'] = machine_name
+            grouped['OD_MIN'] = 130.0 if '08' in machine_name else 288.0
             
             processed_data.append(grouped)
             
         if processed_data:
             final_df = pd.concat(processed_data, ignore_index=True)
-            
             final_df['Margin'] = final_df['Latest_OD'] - final_df['OD_MIN']
+            final_df['Status'] = final_df['Margin'].apply(lambda m: "วิกฤต (Critical)" if m <= 0.5 else ("เฝ้าระวัง (Warning)" if m <= 2.0 else "ปกติ (Safe)"))
             
-            def calc_status(margin):
-                if margin <= 0.5: return "วิกฤต (Critical)"
-                elif margin <= 2.0: return "เฝ้าระวัง (Warning)"
-                else: return "ปกติ (Safe)"
-                
-            final_df['Status'] = final_df['Margin'].apply(calc_status)
-            
-            # ใส่สัญลักษณ์ # นำหน้าชื่อชุดใบมีดให้ดูสวยงาม
-            final_df['Set_No'] = "#" + final_df['Set_No']
-            
-            # เรียงลำดับให้สวยงาม
+            # กำหนดลำดับข้อมูลให้กราฟเรียงสวยงาม
             final_df = final_df.sort_values(by=['Machine', 'Set_No']).reset_index(drop=True)
             return final_df
             
     except Exception as e:
         print("Error pulling data:", e)
-        pass # ปล่อยให้ไหลไปใช้ข้อมูลสำรองหากพัง
+        pass 
         
-    # ข้อมูลสำรอง (Fallback Data)
-    return pd.DataFrame([
-        {"Machine": "ERROR", "Set_No": "#N/A", "Grind_Count": 0, "Latest_OD": 0, "OD_MIN": 0, "Margin": 0, "Status": "วิกฤต (Critical)"}
-    ])
+    # ข้อมูลจำลองตั้งต้น (Fallback Data) - ตรงตาม Master List เป๊ะๆ
+    fallback_data = [
+        # LS-05
+        {"Machine": "LS-05", "Set_No": "1-20", "Color": "แดง (Red)", "Thickness_mm": 10, "Grind_Count": 0, "Latest_OD": 310.0, "OD_MIN": 288.0, "Margin": 22.0, "Status": "ปกติ (Safe)", "Inspector": "-"},
+        {"Machine": "LS-05", "Set_No": "21-40", "Color": "ขาว (white)", "Thickness_mm": 10, "Grind_Count": 0, "Latest_OD": 310.0, "OD_MIN": 288.0, "Margin": 22.0, "Status": "ปกติ (Safe)", "Inspector": "-"},
+        {"Machine": "LS-05", "Set_No": "41-60", "Color": "ดำ (Black)", "Thickness_mm": 10, "Grind_Count": 0, "Latest_OD": 310.0, "OD_MIN": 288.0, "Margin": 22.0, "Status": "ปกติ (Safe)", "Inspector": "-"},
+        {"Machine": "LS-05", "Set_No": "61-80", "Color": "เขียว (Green)", "Thickness_mm": 10, "Grind_Count": 0, "Latest_OD": 310.0, "OD_MIN": 288.0, "Margin": 22.0, "Status": "ปกติ (Safe)", "Inspector": "-"},
+        {"Machine": "LS-05", "Set_No": "81-100", "Color": "เหลือง (Yellow)", "Thickness_mm": 10, "Grind_Count": 0, "Latest_OD": 310.0, "OD_MIN": 288.0, "Margin": 22.0, "Status": "ปกติ (Safe)", "Inspector": "-"},
+        {"Machine": "LS-05", "Set_No": "101-120", "Color": "ชมพู (Pink)", "Thickness_mm": 10, "Grind_Count": 0, "Latest_OD": 310.0, "OD_MIN": 288.0, "Margin": 22.0, "Status": "ปกติ (Safe)", "Inspector": "-"},
+        
+        # LS-06
+        {"Machine": "LS-06", "Set_No": "1-20 (ชุดบน)", "Color": "แดง (Red)", "Thickness_mm": 10, "Grind_Count": 0, "Latest_OD": 310.0, "OD_MIN": 288.0, "Margin": 22.0, "Status": "ปกติ (Safe)", "Inspector": "-"},
+        {"Machine": "LS-06", "Set_No": "21-40 (ชุดบน)", "Color": "เหลือง (Yellow)", "Thickness_mm": 10, "Grind_Count": 0, "Latest_OD": 310.0, "OD_MIN": 288.0, "Margin": 22.0, "Status": "ปกติ (Safe)", "Inspector": "-"},
+        {"Machine": "LS-06", "Set_No": "41-60 (ชุดบน)", "Color": "ขาว (white)", "Thickness_mm": 10, "Grind_Count": 0, "Latest_OD": 310.0, "OD_MIN": 288.0, "Margin": 22.0, "Status": "ปกติ (Safe)", "Inspector": "-"},
+        {"Machine": "LS-06", "Set_No": "61-80 (ชุดบน)", "Color": "เขียว (Green)", "Thickness_mm": 10, "Grind_Count": 0, "Latest_OD": 310.0, "OD_MIN": 288.0, "Margin": 22.0, "Status": "ปกติ (Safe)", "Inspector": "-"},
+        {"Machine": "LS-06", "Set_No": "1-20 (ชุดกลาง)", "Color": "ดำ (Black)", "Thickness_mm": 10, "Grind_Count": 0, "Latest_OD": 310.0, "OD_MIN": 288.0, "Margin": 22.0, "Status": "ปกติ (Safe)", "Inspector": "-"},
+        {"Machine": "LS-06", "Set_No": "21-40 (ชุดกลาง)", "Color": "แดง (Red)", "Thickness_mm": 10, "Grind_Count": 0, "Latest_OD": 310.0, "OD_MIN": 288.0, "Margin": 22.0, "Status": "ปกติ (Safe)", "Inspector": "-"},
+        {"Machine": "LS-06", "Set_No": "41-60 (ชุดกลาง)", "Color": "เขียว (Green)", "Thickness_mm": 10, "Grind_Count": 0, "Latest_OD": 310.0, "OD_MIN": 288.0, "Margin": 22.0, "Status": "ปกติ (Safe)", "Inspector": "-"},
+        {"Machine": "LS-06", "Set_No": "1-20 (ชุดล่าง)", "Color": "เขียว (Green)", "Thickness_mm": 10, "Grind_Count": 0, "Latest_OD": 310.0, "OD_MIN": 288.0, "Margin": 22.0, "Status": "ปกติ (Safe)", "Inspector": "-"},
+        {"Machine": "LS-06", "Set_No": "21-40 (ชุดล่าง)", "Color": "ขาว (white)", "Thickness_mm": 10, "Grind_Count": 0, "Latest_OD": 310.0, "OD_MIN": 288.0, "Margin": 22.0, "Status": "ปกติ (Safe)", "Inspector": "-"},
+        {"Machine": "LS-06", "Set_No": "41-60 (ชุดล่าง)", "Color": "เหลือง (Yellow)", "Thickness_mm": 10, "Grind_Count": 0, "Latest_OD": 310.0, "OD_MIN": 288.0, "Margin": 22.0, "Status": "ปกติ (Safe)", "Inspector": "-"},
+
+        # LS-08
+        {"Machine": "LS-08", "Set_No": "1-31 (5 mm.)", "Color": "-", "Thickness_mm": 5, "Grind_Count": 0, "Latest_OD": 220.0, "OD_MIN": 130.0, "Margin": 90.0, "Status": "ปกติ (Safe)", "Inspector": "-"},
+        {"Machine": "LS-08", "Set_No": "32-62 (5 mm.)", "Color": "-", "Thickness_mm": 5, "Grind_Count": 0, "Latest_OD": 220.0, "OD_MIN": 130.0, "Margin": 90.0, "Status": "ปกติ (Safe)", "Inspector": "-"},
+        {"Machine": "LS-08", "Set_No": "1-30 (7 mm.)", "Color": "-", "Thickness_mm": 7, "Grind_Count": 0, "Latest_OD": 220.0, "OD_MIN": 130.0, "Margin": 90.0, "Status": "ปกติ (Safe)", "Inspector": "-"},
+        {"Machine": "LS-08", "Set_No": "31-60 (7 mm.)", "Color": "-", "Thickness_mm": 7, "Grind_Count": 0, "Latest_OD": 220.0, "OD_MIN": 130.0, "Margin": 90.0, "Status": "ปกติ (Safe)", "Inspector": "-"}
+    ]
+    return pd.DataFrame(fallback_data)
 
 df = load_data()
 
