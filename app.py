@@ -74,39 +74,38 @@ GOOGLE_SHEET_CSV_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/expor
 def normalize_dataframe(raw_df):
     """Clean and map Google Sheet columns (Thai/English) to standard keys safely."""
     df = raw_df.copy()
-    # Strip whitespace from column names
     df.columns = [str(c).strip() for c in df.columns]
     
-    # Column mapping dictionary
     col_mapping = {}
     for c in df.columns:
         c_lower = c.lower()
-        if any(k in c_lower or k in c for k in ['เครื่อง', 'machine', 'ls-']):
+        if any(k in c_lower for k in ['เครื่อง', 'machine', 'mc']):
             col_mapping[c] = 'Machine'
-        elif any(k in c_lower or k in c for k in ['ชุด', 'set']):
+        elif any(k in c_lower for k in ['ชุด', 'set', 'no']):
             col_mapping[c] = 'Set_No'
-        elif any(k in c_lower or k in c for k in ['สี', 'color']):
+        elif any(k in c_lower for k in ['สี', 'color']):
             col_mapping[c] = 'Color'
-        elif any(k in c_lower or k in c for k in ['ความหนา', 'thickness']):
+        elif any(k in c_lower for k in ['หนา', 'thickness']):
             col_mapping[c] = 'Thickness_mm'
-        elif any(k in c_lower or k in c for k in ['เจียร', 'เจียร์', 'grind']):
+        elif any(k in c_lower for k in ['เจียร', 'เจียร์', 'grind']):
             col_mapping[c] = 'Grind_Count'
-        elif any(k in c_lower or k in c for k in ['latest_od', 'ขนาด od', 'od ล่าสุด', 'od(mm)', 'od']):
+        elif any(k in c_lower for k in ['latest', 'ล่าสุด', 'od(mm)']) or c_lower == 'od':
             col_mapping[c] = 'Latest_OD'
-        elif any(k in c_lower or k in c for k in ['od_min', 'od min', 'ขั้นต่ำ', 'min']):
+        elif any(k in c_lower for k in ['min', 'ขั้นต่ำ']):
             col_mapping[c] = 'OD_MIN'
-        elif any(k in c_lower or k in c for k in ['margin', 'ระยะ', 'คงเหลือ']):
+        elif any(k in c_lower for k in ['margin', 'ระยะ', 'คงเหลือ']):
             col_mapping[c] = 'Margin'
-        elif any(k in c_lower or k in c for k in ['สถานะ', 'status']):
+        elif any(k in c_lower for k in ['สถานะ', 'status']):
             col_mapping[c] = 'Status'
-        elif any(k in c_lower or k in c for k in ['ตรวจ', 'inspector', 'ผู้บันทึก']):
+        elif any(k in c_lower for k in ['ตรวจ', 'inspector', 'ผู้บันทึก']):
             col_mapping[c] = 'Inspector'
             
     df = df.rename(columns=col_mapping)
     
-    # Ensure mandatory columns exist
+    # หากไม่มีคอลัมน์ Machine ให้สร้างจากค่าว่างเพื่อไม่ให้พัง (แต่ไม่เหมาว่าเป็น LS-05 ทั้งหมด)
     if 'Machine' not in df.columns:
-        df['Machine'] = 'LS-05'
+        df['Machine'] = 'Unknown'
+        
     if 'Set_No' not in df.columns:
         df['Set_No'] = [f'#{i+1}' for i in range(len(df))]
     if 'Grind_Count' not in df.columns:
@@ -114,15 +113,12 @@ def normalize_dataframe(raw_df):
     if 'Latest_OD' not in df.columns:
         df['Latest_OD'] = 300.0
         
-    # Clean Machine name values (e.g. LS-5 -> LS-05)
     df['Machine'] = df['Machine'].astype(str).str.strip().str.upper()
     df['Machine'] = df['Machine'].replace({'LS-5': 'LS-05', 'LS-6': 'LS-06', 'LS-8': 'LS-08'})
     
-    # Ensure numeric types
     df['Latest_OD'] = pd.to_numeric(df['Latest_OD'], errors='coerce').fillna(300.0)
     df['Grind_Count'] = pd.to_numeric(df['Grind_Count'], errors='coerce').fillna(0).astype(int)
     
-    # Set default OD_MIN based on Machine if missing
     if 'OD_MIN' not in df.columns:
         def get_default_min(m):
             return 130.0 if '08' in str(m) else 288.0
@@ -130,13 +126,11 @@ def normalize_dataframe(raw_df):
     else:
         df['OD_MIN'] = pd.to_numeric(df['OD_MIN'], errors='coerce').fillna(288.0)
         
-    # Calculate Margin if missing
     if 'Margin' not in df.columns:
         df['Margin'] = df['Latest_OD'] - df['OD_MIN']
     else:
         df['Margin'] = pd.to_numeric(df['Margin'], errors='coerce').fillna(df['Latest_OD'] - df['OD_MIN'])
         
-    # Normalize or Calculate Status if missing
     def calculate_status(row):
         margin = row['Margin']
         if margin <= 0.5:
@@ -151,9 +145,9 @@ def normalize_dataframe(raw_df):
     else:
         def clean_status_val(val):
             val_str = str(val).strip()
-            if 'วิกฤต' in val_str or 'Critical' in val_str or 'CRITICAL' in val_str:
+            if any(k in val_str for k in ['วิกฤต', 'Critical', 'CRITICAL']):
                 return "วิกฤต (Critical)"
-            elif 'เฝ้าระวัง' in val_str or 'Warning' in val_str or 'WARN' in val_str:
+            elif any(k in val_str for k in ['เฝ้าระวัง', 'Warning', 'WARN']):
                 return "เฝ้าระวัง (Warning)"
             else:
                 return "ปกติ (Safe)"
@@ -170,7 +164,6 @@ def load_data():
     except Exception as e:
         pass
         
-    # Fallback structured dataset
     fallback_data = [
         # LS-05 (6 ชุด)
         {"Machine": "LS-05", "Set_No": "#1-20", "Color": "แดง/เหลือง", "Thickness_mm": 10, "Grind_Count": 3, "Latest_OD": 318.00, "OD_MIN": 288.00, "Margin": 30.00, "Status": "ปกติ (Safe)", "Inspector": "สมชาย / กิตติ"},
@@ -221,7 +214,6 @@ status_filter = st.sidebar.multiselect(
     default=status_options
 )
 
-# Safe Filter Application
 filtered_df = df.copy()
 if "Machine" in filtered_df.columns and machine_filter:
     filtered_df = filtered_df[filtered_df["Machine"].isin(machine_filter)]
@@ -301,10 +293,10 @@ with tab1:
             labels={"Set_No": "ชุดใบมีด / หมายเลข", "Latest_OD": "ขนาด OD (mm)"}
         )
         fig_od.update_traces(texttemplate='%{text:.2f}', textposition='outside')
-        fig_od.update_xaxes(matches=None)  # Independent X axes for each machine facet
+        fig_od.update_xaxes(matches=None) 
         
-        # Adjust Y-axis scale: range 100 to 320 with step 20
-        fig_od.update_yaxes(range=[100, 320], dtick=20)
+        # ปรับ range Y-axis ใหม่ให้แสดงผลถึงค่า 130 ของเครื่อง LS-08 ได้สวยขึ้น
+        fig_od.update_yaxes(range=[100, 340], dtick=40)
         
         fig_od.update_layout(height=480, margin=dict(t=50, b=40, l=40, r=40))
         st.plotly_chart(fig_od, use_container_width=True)
@@ -324,7 +316,7 @@ with tab2:
             labels={"Set_No": "ชุดใบมีด / หมายเลข", "Grind_Count": "จำนวนครั้งเจียร์"}
         )
         fig_grind.update_traces(texttemplate='%{text} ครั้ง', textposition='outside')
-        fig_grind.update_xaxes(matches=None)  # Independent X axes
+        fig_grind.update_xaxes(matches=None)
         fig_grind.update_layout(height=480, margin=dict(t=50, b=40, l=40, r=40))
         st.plotly_chart(fig_grind, use_container_width=True)
     else:
@@ -347,7 +339,6 @@ def highlight_status(val):
 if not filtered_df.empty:
     display_cols = [c for c in ['Machine', 'Set_No', 'Color', 'Thickness_mm', 'Grind_Count', 'Latest_OD', 'OD_MIN', 'Margin', 'Status', 'Inspector'] if c in filtered_df.columns]
     
-    # Check Pandas version compatibility for map/applymap
     st_builder = filtered_df[display_cols].style
     if hasattr(st_builder, 'map'):
         styled_table = st_builder.map(highlight_status, subset=['Status'] if 'Status' in display_cols else None)
