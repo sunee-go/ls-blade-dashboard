@@ -4,7 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # ---------------------------------------------------------
-# 1. Page Configuration
+# 1. Page Configuration (ตั้งค่าหน้าเว็บ)
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="LS Blade Executive Dashboard",
@@ -13,14 +13,24 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# 📌 จุดที่ 1: ปรับแต่ง CSS (ขนาดฟอนต์ และ สีกล่อง KPI)
+# รหัสสีอ้างอิงเบื้องต้น: 
+# สีแดง = #EF4444 (อ่อน) / #DC2626 (เข้ม)
+# สีส้ม/เหลือง = #F59E0B (อ่อน) / #D97706 (เข้ม)
+# สีเขียว = #22C55E (อ่อน) / #16A34A (เข้ม)
+# สีดำ/เทาเข้ม = #0F172A (สีตัวหนังสือหลัก)
 st.markdown("""
 <style>
     .main-header { font-size: 24px; font-weight: bold; color: #1E293B; margin-bottom: 5px; }
     .sub-header { font-size: 14px; color: #64748B; margin-bottom: 20px; }
+    
+    /* กล่องสีต่างๆ ของ KPI */
     .kpi-card-safe { background-color: #F0FDF4; border-left: 5px solid #22C55E; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
     .kpi-card-danger { background-color: #FEF2F2; border-left: 5px solid #EF4444; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
     .kpi-card-warning { background-color: #FFFBEB; border-left: 5px solid #F59E0B; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
-    fig_od.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1], font=dict(size=20)))
+    
+    /* 📌 ปรับขนาดฟอนต์ชื่อเครื่องจักร (KPI Title) ได้ที่บรรทัดนี้ (เช่น เปลี่ยนจาก 22px เป็น 24px) */
+    .kpi-title { font-size: 22px; font-weight: bold; color: #0F172A; }
     .kpi-value { font-size: 20px; font-weight: bold; color: #1E293B; }
     .kpi-sub { font-size: 13px; color: #475569; }
 </style>
@@ -33,6 +43,7 @@ SHEET_ID = "1LCtzIdzBd4MGjKDV06Vl2rX-uy5rdZnQmNvaB72WpX0"
 EXCEL_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=xlsx"
 
 def format_set_name(machine, set_no, color, thickness):
+    """จัดรูปแบบชื่อชุดใบมีดให้ตรงกับ Master List ป้องกันการนับรอบเจียรปนกัน"""
     s = str(set_no).strip()
     c = str(color).strip()
     t = str(thickness).strip()
@@ -102,7 +113,7 @@ def load_data():
             grouped = grouped.rename(columns={'OD': 'Latest_OD', 'Raw_Set_No': 'Grind_Count'})
             
             grouped['Machine'] = machine_name
-            # ตั้งค่า Target (OD MIN) ตามที่ผู้ใช้กำหนดใหม่
+            # 📌 จุดที่ 2: ตั้งค่าเส้นขีดจำกัดล่าง (OD MIN)
             grouped['OD_MIN'] = 216.0 if '08' in machine_name else 288.0
             
             processed_data.append(grouped)
@@ -111,18 +122,18 @@ def load_data():
             final_df = pd.concat(processed_data, ignore_index=True)
             final_df['Margin'] = final_df['Latest_OD'] - final_df['OD_MIN']
             
-            # ฟังก์ชันคำนวณสถานะสีตามเกณฑ์ใหม่
+            # 📌 จุดที่ 3: ฟังก์ชันกำหนดเงื่อนไขสี (แดง/ส้ม/เขียว)
             def calc_status(row):
                 m = row['Machine']
                 od = row['Latest_OD']
                 if '08' in m:
-                    if od <= 220: return "วิกฤต (Critical)"
-                    elif od <= 230: return "เฝ้าระวัง (Warning)"
-                    else: return "ปกติ (Safe)"
+                    if od <= 220: return "วิกฤต (Critical)"      # LS-08 แดง ถ้า <= 220
+                    elif od <= 230: return "เฝ้าระวัง (Warning)" # LS-08 ส้ม ถ้า <= 230
+                    else: return "ปกติ (Safe)"                 # LS-08 เขียว ถ้า > 230
                 else:
-                    if od <= 290: return "วิกฤต (Critical)"
-                    elif od <= 295: return "เฝ้าระวัง (Warning)"
-                    else: return "ปกติ (Safe)"
+                    if od <= 290: return "วิกฤต (Critical)"      # LS-05,06 แดง ถ้า <= 290
+                    elif od <= 295: return "เฝ้าระวัง (Warning)" # LS-05,06 ส้ม ถ้า <= 295
+                    else: return "ปกติ (Safe)"                 # LS-05,06 เขียว ถ้า > 295
                     
             final_df['Status'] = final_df.apply(calc_status, axis=1)
             final_df = final_df.sort_values(by=['Machine', 'Set_No']).reset_index(drop=True)
@@ -132,6 +143,7 @@ def load_data():
         print("Error pulling data:", e)
         pass 
         
+    # ข้อมูลสำลองกรณีเน็ตหลุด/อ่านไฟล์ไม่รอด (ปรับตัวเลขให้ตรงเงื่อนไขทดสอบแล้ว)
     fallback_data = [
         {"Machine": "LS-05", "Set_No": "1-20", "Color": "แดง", "Thickness_mm": 10, "Grind_Count": 0, "Latest_OD": 296.0, "OD_MIN": 288.0, "Margin": 8.0, "Status": "ปกติ (Safe)", "Inspector": "-"},
         {"Machine": "LS-05", "Set_No": "21-40", "Color": "ขาว", "Thickness_mm": 10, "Grind_Count": 0, "Latest_OD": 293.0, "OD_MIN": 288.0, "Margin": 5.0, "Status": "เฝ้าระวัง (Warning)", "Inspector": "-"},
@@ -144,10 +156,13 @@ def load_data():
 df = load_data()
 
 # ---------------------------------------------------------
-# 3. Sidebar Filters
+# 3. Sidebar Filters & Search
 # ---------------------------------------------------------
 st.sidebar.image("https://img.icons8.com/color/96/dashboard.png", width=60)
 st.sidebar.title("ระบบกรองข้อมูล (Filters)")
+
+# 📌 จุดที่ 4: ช่องค้นหาด่วน (Quick Search)
+search_query = st.sidebar.text_input("🔍 ค้นหาด่วน (เช่น 1-20, แดง, สมชาย):", "")
 
 machine_options = sorted(list(df["Machine"].unique())) if not df.empty else []
 machine_filter = st.sidebar.multiselect("เลือกเครื่องจักร (Machine):", options=machine_options, default=machine_options)
@@ -156,6 +171,13 @@ status_options = ["ปกติ (Safe)", "เฝ้าระวัง (Warning)"
 status_filter = st.sidebar.multiselect("เลือกสถานะ (Status):", options=status_options, default=status_options)
 
 filtered_df = df.copy()
+
+# กรองข้อมูลตามที่พิมพ์ในช่องค้นหาด่วน
+if search_query:
+    filtered_df = filtered_df[
+        filtered_df.apply(lambda row: row.astype(str).str.contains(search_query, case=False, na=False).any(), axis=1)
+    ]
+    
 if machine_filter: filtered_df = filtered_df[filtered_df["Machine"].isin(machine_filter)]
 if status_filter: filtered_df = filtered_df[filtered_df["Status"].isin(status_filter)]
 
@@ -211,10 +233,15 @@ st.markdown("---")
 # ---------------------------------------------------------
 # 6. Bar Charts Section
 # ---------------------------------------------------------
-st.subheader("📈 กราฟแสดง(OD)ใบมีดสลิต & ประวัติการเจียร์")
+st.subheader("📈 วิเคราะห์ขนาดเส้นผ่านศูนย์กลางภายนอก (OD) & จำนวนครั้งเจียรรายชุด")
 tab1, tab2 = st.tabs(["📏 ขนาด OD ล่าสุด เทียบเส้น Target ขั้นต่ำ", "🔄 จำนวนครั้งส่งเจียรสะสม"])
 
-color_map = {"ปกติ (Safe)": "#22C55E", "เฝ้าระวัง (Warning)": "#F59E0B", "วิกฤต (Critical)": "#EF4444"}
+# 📌 จุดที่ 5: ตั้งค่าสีของแท่งกราฟ Plotly (เปลี่ยนรหัสสีได้ที่นี่)
+color_map = {
+    "ปกติ (Safe)": "#22C55E",      # สีเขียว
+    "เฝ้าระวัง (Warning)": "#F59E0B", # สีส้ม
+    "วิกฤต (Critical)": "#EF4444"    # สีแดง
+}
 
 with tab1:
     if not filtered_df.empty:
@@ -224,24 +251,28 @@ with tab1:
             title="ค่า OD หลังเจียรล่าสุดแยกตามชุดใบมีด (mm)",
             labels={"Set_No": "ชุดใบมีด / หมายเลข", "Latest_OD": "ขนาด OD (mm)"}
         )
+        
+        # 📌 จุดที่ 6: เปลี่ยนสีตัวเลขบนกราฟเป็น 'สีดำ' (textfont_color='black')
         fig_od.update_traces(texttemplate='%{text:.2f}', textposition='outside', textfont_color='black')
         fig_od.update_xaxes(matches=None) 
         
-        # ปรับแก้ชื่อกราฟย่อยแต่ละเครื่องให้ดูสะอาดตา
-        fig_od.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+        # 📌 จุดที่ 7: เปลี่ยนขนาดฟอนต์หัวข้อกราฟย่อย (เช่น เปลี่ยน size=20)
+        fig_od.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1], font=dict(size=20)))
         
-        # เพิ่มเส้นประ Target สีแดงให้แต่ละเครื่อง
+        # 📌 จุดที่ 8: สร้างเส้น Target ไข่ปลาสีแดง
         for i, ann in enumerate(fig_od.layout.annotations):
             machine = ann.text
             col = i + 1
+            # กำหนดค่าตัวเลขเส้น Target
             target_val = 216 if '08' in machine else 288
+            
+            # วาดเส้นแนวนอน (hline)
             fig_od.add_hline(y=target_val, line_dash="dot", line_color="red", line_width=2, 
                              row=1, col=col, 
                              annotation_text=f" Target: {target_val}", 
                              annotation_position="bottom right",
                              annotation_font_color="red")
                              
-        # ปรับขอบเขต Y-Axis ให้เหมาะสมกับข้อมูล (180 ถึง 330)
         fig_od.update_yaxes(range=[180, 330], dtick=20)
         fig_od.update_layout(height=480, margin=dict(t=50, b=40, l=40, r=40))
         st.plotly_chart(fig_od, use_container_width=True)
@@ -255,7 +286,8 @@ with tab2:
             text="Grind_Count", title="จำนวนครั้งการส่งเจียร์สะสมแยกตามชุดใบมีด",
             labels={"Set_No": "ชุดใบมีด / หมายเลข", "Grind_Count": "จำนวนครั้งเจียร์"}
         )
-        fig_grind.update_traces(texttemplate='%{text} ครั้ง', textposition='outside')
+        # 📌 สีตัวเลขบนกราฟแท่ง (textfont_color='black')
+        fig_grind.update_traces(texttemplate='%{text} ครั้ง', textposition='outside', textfont_color='black')
         fig_grind.update_xaxes(matches=None)
         fig_grind.update_layout(height=480, margin=dict(t=50, b=40, l=40, r=40))
         st.plotly_chart(fig_grind, use_container_width=True)
@@ -267,11 +299,15 @@ with tab2:
 # ---------------------------------------------------------
 st.subheader("📋 ตารางประเมินความเสี่ยงและแผนการจัดการ (Action Plan)")
 
+# 📌 จุดที่ 9: เปลี่ยนสีแถบในตารางด้านล่างสุด
 def highlight_status(val):
     val_str = str(val)
-    if "วิกฤต" in val_str or "Critical" in val_str: return 'background-color: #FEF2F2; color: #DC2626; font-weight: bold;'
-    elif "เฝ้าระวัง" in val_str or "Warning" in val_str: return 'background-color: #FFFBEB; color: #D97706; font-weight: bold;'
-    else: return 'background-color: #F0FDF4; color: #16A34A;'
+    if "วิกฤต" in val_str or "Critical" in val_str: 
+        return 'background-color: #FEF2F2; color: #DC2626; font-weight: bold;' # พื้นแดงอ่อน ตัวหนังสือแดงเข้ม
+    elif "เฝ้าระวัง" in val_str or "Warning" in val_str: 
+        return 'background-color: #FFFBEB; color: #D97706; font-weight: bold;' # พื้นส้มอ่อน ตัวหนังสือส้มเข้ม
+    else: 
+        return 'background-color: #F0FDF4; color: #16A34A;'                    # พื้นเขียวอ่อน ตัวหนังสือเขียวเข้ม
 
 if not filtered_df.empty:
     display_cols = [c for c in ['Machine', 'Set_No', 'Color', 'Thickness_mm', 'Grind_Count', 'Latest_OD', 'OD_MIN', 'Margin', 'Status', 'Inspector'] if c in filtered_df.columns]
