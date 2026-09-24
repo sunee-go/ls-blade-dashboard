@@ -224,7 +224,7 @@ with tab1:
             title="ค่า OD หลังเจียรล่าสุดแยกตามชุดใบมีด (mm)",
             labels={"Set_No": "ชุดใบมีด / หมายเลข", "Latest_OD": "ขนาด OD (mm)"}
         )
-        fig_od.update_traces(texttemplate='%{text:.2f}', textposition='outside')
+        fig_od.update_traces(texttemplate='%{text:.2f}', textposition='outside', textfont_color='black')
         fig_od.update_xaxes(matches=None) 
         
         # ปรับแก้ชื่อกราฟย่อยแต่ละเครื่องให้ดูสะอาดตา
