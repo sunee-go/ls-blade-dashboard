@@ -233,7 +233,7 @@ st.markdown("---")
 # ---------------------------------------------------------
 # 6. Bar Charts Section
 # ---------------------------------------------------------
-st.subheader("📈 วิเคราะห์ขนาดเส้นผ่านศูนย์กลางภายนอก (OD) & จำนวนครั้งเจียรรายชุด")
+st.subheader("📈 การฟแสดง(OD)ใบมีด & รายการเจียร์")
 tab1, tab2 = st.tabs(["📏 ขนาด OD ล่าสุด เทียบเส้น Target ขั้นต่ำ", "🔄 จำนวนครั้งส่งเจียรสะสม"])
 
 # 📌 จุดที่ 5: ตั้งค่าสีของแท่งกราฟ Plotly (เปลี่ยนรหัสสีได้ที่นี่)
@@ -257,7 +257,7 @@ with tab1:
         fig_od.update_xaxes(matches=None) 
         
         # 📌 จุดที่ 7: เปลี่ยนขนาดฟอนต์หัวข้อกราฟย่อย (เช่น เปลี่ยน size=20)
-        fig_od.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1], font=dict(size=20)))
+        fig_od.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1], font=dict(size=22)))
         
         # 📌 จุดที่ 8: สร้างเส้น Target ไข่ปลาสีแดง
         for i, ann in enumerate(fig_od.layout.annotations):
