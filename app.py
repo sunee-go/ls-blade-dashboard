@@ -253,7 +253,7 @@ with tab1:
         )
         
         # 📌 จุดที่ 6: เปลี่ยนสีตัวเลขบนกราฟเป็น 'สีดำ' (textfont_color='black')
-        fig_od.update_traces(texttemplate='%{text:.2f}', textposition='outside', textfont_color='black')
+        fig_od.update_traces(texttemplate='%{text:.3f}', textposition='outside', textfont_color='black')
         fig_od.update_xaxes(matches=None) 
         
         # 📌 จุดที่ 7: เปลี่ยนขนาดฟอนต์หัวข้อกราฟย่อย (เช่น เปลี่ยน size=20)
@@ -267,7 +267,7 @@ with tab1:
             target_val = 216 if '08' in machine else 288
             
             # วาดเส้นแนวนอน (hline)
-            fig_od.add_hline(y=target_val, line_dash="dot", line_color="red", line_width=2, 
+            fig_od.add_hline(y=target_val, line_dash="dot", line_color="yellow", line_width=2, 
                              row=1, col=col, 
                              annotation_text=f" Target: {target_val}", 
                              annotation_position="bottom right",
