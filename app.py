@@ -257,7 +257,7 @@ with tab1:
         fig_od.update_xaxes(matches=None) 
         
         # 📌 จุดที่ 7: เปลี่ยนขนาดฟอนต์หัวข้อกราฟย่อย (เช่น เปลี่ยน size=20)
-        fig_od.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1], font=dict(size=22)))
+        fig_od.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1], font=dict(size=10)))
         
         # 📌 จุดที่ 8: สร้างเส้น Target ไข่ปลาสีแดง
         for i, ann in enumerate(fig_od.layout.annotations):
