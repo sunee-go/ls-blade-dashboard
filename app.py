@@ -252,8 +252,8 @@ with tab1:
             labels={"Set_No": "ชุดใบมีด / หมายเลข", "Latest_OD": "ขนาด OD (mm)"}
         )
         
-        # 📌 จุดที่ 6: เปลี่ยนสีตัวเลขบนกราฟเป็น 'สีดำ' (textfont_color='black')
-        fig_od.update_traces(texttemplate='%{text:.3f}', textposition='outside', textfont_color='black')
+        # 📌 จุดที่ 6: เปลี่ยนสีตัวเลขบนกราฟเป็น 'สีดำ' (textfont_color='black') แก้ไขต่ำแหน่งทศนิยมตรงนี้
+        fig_od.update_traces(texttemplate='%{text:.2f}', textposition='outside', textfont_color='black') 
         fig_od.update_xaxes(matches=None) 
         
         # 📌 จุดที่ 7: เปลี่ยนขนาดฟอนต์หัวข้อกราฟย่อย (เช่น เปลี่ยน size=20)
@@ -318,8 +318,15 @@ if not filtered_df.empty:
     else:
         styled_table = st_builder.applymap(highlight_status, subset=['Status'] if 'Status' in display_cols else None)
         
+    # 📌 เพิ่มคำสั่ง format เพื่อให้คอลัมน์ที่เกี่ยวกับ OD แสดงทศนิยม 2 ตำแหน่ง
+    format_dict = {}
+    if 'Latest_OD' in display_cols: format_dict['Latest_OD'] = "{:.2f}"
+    if 'OD_MIN' in display_cols: format_dict['OD_MIN'] = "{:.2f}"
+    if 'Margin' in display_cols: format_dict['Margin'] = "{:.2f}"
+    styled_table = styled_table.format(format_dict)
+        
     st.dataframe(styled_table, use_container_width=True, height=350)
 else:
     st.info("ไม่มีข้อมูลแสดงผลในตาราง")
 
-st.caption("ระบบเชื่อมต่อข้อมูล Google Sheet อัปเดตอัตโนมัติ | พัฒนาสำหรับผู้บริหารเครื่องจักรชุด LS")
+st.caption("ระบบเชื่อมต่อข้อมูล Google Sheet อัปเดตอัตโนมัติ | พัฒนาสำหรับผู้บริหารชุดใบมีด SLITTING (WG)")
