@@ -233,7 +233,7 @@ st.markdown("---")
 # ---------------------------------------------------------
 # 6. Bar Charts Section
 # ---------------------------------------------------------
-st.subheader("📈 การฟแสดง(OD)ใบมีด & รายการเจียร์")
+st.subheader("📈 การแสดงผล(OD)ใบมีด & รายการเจียร")
 tab1, tab2 = st.tabs(["📏 ขนาด OD ล่าสุด เทียบเส้น Target ขั้นต่ำ", "🔄 จำนวนครั้งส่งเจียรสะสม"])
 
 # 📌 จุดที่ 5: ตั้งค่าสีของแท่งกราฟ Plotly (เปลี่ยนรหัสสีได้ที่นี่)
@@ -252,14 +252,14 @@ with tab1:
             labels={"Set_No": "ชุดใบมีด / หมายเลข", "Latest_OD": "ขนาด OD (mm)"}
         )
         
-        # 📌 จุดที่ 6: เปลี่ยนสีตัวเลขบนกราฟเป็น 'สีดำ' (textfont_color='black') แก้ไขต่ำแหน่งทศนิยมตรงนี้
-        fig_od.update_traces(texttemplate='%{text:.2f}', textposition='outside', textfont_color='black') 
+        # 📌 ปรับทศนิยมเป็น 2 ตำแหน่ง และตัวหนังสือสีดำ
+        fig_od.update_traces(texttemplate='%{text:.2f}', textposition='outside', textfont_color='black')
         fig_od.update_xaxes(matches=None) 
         
-        # 📌 จุดที่ 7: เปลี่ยนขนาดฟอนต์หัวข้อกราฟย่อย (เช่น เปลี่ยน size=20)
+        # ปรับขนาดฟอนต์หัวข้อกราฟย่อย (เช่น เปลี่ยน size=20)
         fig_od.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1], font=dict(size=20)))
         
-        # 📌 จุดที่ 8: สร้างเส้น Target ไข่ปลาสีแดง
+        # สร้างเส้น Target
         for i, ann in enumerate(fig_od.layout.annotations):
             machine = ann.text
             col = i + 1
@@ -267,15 +267,19 @@ with tab1:
             target_val = 216 if '08' in machine else 288
             
             # วาดเส้นแนวนอน (hline)
-            fig_od.add_hline(y=target_val, line_dash="dot", line_color="yellow", line_width=2, 
+            fig_od.add_hline(y=target_val, line_dash="dot", line_color="red", line_width=2, 
                              row=1, col=col, 
                              annotation_text=f" Target: {target_val}", 
                              annotation_position="bottom right",
                              annotation_font_color="black")
                              
         fig_od.update_yaxes(range=[180, 330], dtick=20)
-        fig_od.update_layout(height=480, margin=dict(t=50, b=40, l=40, r=40))
-        st.plotly_chart(fig_od, use_container_width=True)
+        
+        # 📌 [สำคัญ] กำหนดความกว้าง (width=1200) เพื่อไม่ให้กราฟโดนบีบ
+        fig_od.update_layout(width=1200, height=480, margin=dict(t=50, b=40, l=40, r=40))
+        
+        # 📌 [สำคัญ] ปิดการยืดตามขนาดจอ (use_container_width=False) ทำให้สไลด์ซ้าย-ขวาได้ในมือถือ
+        st.plotly_chart(fig_od, use_container_width=False)
     else:
         st.warning("ไม่พบข้อมูลตามตัวกรองที่เลือก")
 
@@ -283,17 +287,19 @@ with tab2:
     if not filtered_df.empty:
         fig_grind = px.bar(
             filtered_df, x="Set_No", y="Grind_Count", color="Machine", facet_col="Machine",
-            text="Grind_Count", title="จำนวนครั้งการส่งเจียร์สะสมแยกตามชุดใบมีด",
-            labels={"Set_No": "ชุดใบมีด / หมายเลข", "Grind_Count": "จำนวนครั้งเจียร์"}
+            text="Grind_Count", title="จำนวนครั้งการส่งเจียรสะสมแยกตามชุดใบมีด",
+            labels={"Set_No": "ชุดใบมีด / หมายเลข", "Grind_Count": "จำนวนครั้งเจียร"}
         )
-        # 📌 สีตัวเลขบนกราฟแท่ง (textfont_color='black')
+        # 📌 สีตัวเลขบนกราฟแท่ง
         fig_grind.update_traces(texttemplate='%{text} ครั้ง', textposition='outside', textfont_color='black')
         fig_grind.update_xaxes(matches=None)
-        fig_grind.update_layout(height=480, margin=dict(t=50, b=40, l=40, r=40))
-        st.plotly_chart(fig_grind, use_container_width=True)
+        
+        # 📌 [สำคัญ] กำหนดความกว้าง (width=1200) และปิดการยืดตามขนาดจอเช่นเดียวกัน
+        fig_grind.update_layout(width=1200, height=480, margin=dict(t=50, b=40, l=40, r=40))
+        
+        st.plotly_chart(fig_grind, use_container_width=False)
     else:
         st.warning("ไม่พบข้อมูลตามตัวกรองที่เลือก")
-
 # ---------------------------------------------------------
 # 7. Action Plan & Detailed Risk Table
 # ---------------------------------------------------------
