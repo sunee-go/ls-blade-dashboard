@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 # 1. Page Configuration (ตั้งค่าหน้าเว็บ)
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="LS Blade Executive Dashboard",
+    page_title="LS Knifes Executive Dashboard",
     page_icon="🔪",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -43,7 +43,7 @@ SHEET_ID = "1LCtzIdzBd4MGjKDV06Vl2rX-uy5rdZnQmNvaB72WpX0"
 EXCEL_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=xlsx"
 
 def format_set_name(machine, set_no, color, thickness):
-    """จัดรูปแบบชื่อชุดใบมีดให้ตรงกับ Master List ป้องกันการนับรอบเจียรปนกัน"""
+    """จัดรูปแบบชื่อชุดใบมีดให้ตรงกับ Master List ป้องกันการนับรอบเจียร์ปนกัน"""
     s = str(set_no).strip()
     c = str(color).strip()
     t = str(thickness).strip()
@@ -184,8 +184,8 @@ if status_filter: filtered_df = filtered_df[filtered_df["Status"].isin(status_fi
 # ---------------------------------------------------------
 # 4. Header Section
 # ---------------------------------------------------------
-st.markdown('<div class="main-header">🔪 Executive Blade Monitoring Dashboard</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">ระบบติดตามสภาพหน้าใบมีดสลิตชุดเครื่อง LS-05, LS-06, LS-08 (ดึงข้อมูลล่าสุดจาก Google Sheet ทันที)</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">🔪 Executive knife and Monitoring Dashboard</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">ระบบติดตามสภาพหน้าใบมีดสลิตเครื่อง LS-05, LS-06, LS-08 (ดึงข้อมูลล่าสุดจาก Google Sheet ทันที)</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
 # 5. Executive KPI Summary Cards
@@ -218,7 +218,7 @@ def render_kpi_card(machine_name, od_min_default):
     return f"""
     <div class="{card_class}">
         <div class="kpi-title">เครื่อง {machine_name} (Target: {od_min_default} mm | รวม {count_sets} ชุด)</div>
-        <div class="kpi-value">ส่งเจียรสะสม: {grind_sum} ครั้ง</div>
+        <div class="kpi-value">ส่งเจียร์สะสม: {grind_sum} ครั้ง</div>
         <div class="kpi-sub">ช่วง OD ล่าสุด: {min_od:.2f} - {max_od:.2f} mm</div>
         <div class="kpi-sub"><b>สถานะ:</b> {status_text}</div>
     </div>
@@ -233,8 +233,8 @@ st.markdown("---")
 # ---------------------------------------------------------
 # 6. Bar Charts Section
 # ---------------------------------------------------------
-st.subheader("📈 การแสดงผล(OD)ใบมีด & รายการเจียร")
-tab1, tab2 = st.tabs(["📏 ขนาด OD ล่าสุด เทียบเส้น Target ขั้นต่ำ", "🔄 จำนวนครั้งส่งเจียรสะสม"])
+st.subheader("📈 การแสดงผล(OD)ใบมีด & รายการเจียร์")
+tab1, tab2 = st.tabs(["📏 ขนาด OD ล่าสุด เทียบเส้น Target ขั้นต่ำ", "🔄 จำนวนครั้งส่งเจียร์สะสม"])
 
 # 📌 จุดที่ 5: ตั้งค่าสีของแท่งกราฟ Plotly (เปลี่ยนรหัสสีได้ที่นี่)
 color_map = {
@@ -267,7 +267,7 @@ with tab1:
             target_val = 216 if '08' in machine else 288
             
             # วาดเส้นแนวนอน (hline)
-            fig_od.add_hline(y=target_val, line_dash="dot", line_color="red", line_width=2, 
+            fig_od.add_hline(y=target_val, line_dash="dot", line_color="red", line_width=4, 
                              row=1, col=col, 
                              annotation_text=f" Target: {target_val}", 
                              annotation_position="bottom right",
