@@ -335,4 +335,4 @@ if not filtered_df.empty:
 else:
     st.info("ไม่มีข้อมูลแสดงผลในตาราง")
 
-st.caption("ระบบเชื่อมต่อข้อมูล Google Sheet อัปเดตอัตโนมัติ | พัฒนาสำหรับผู้บริหารชุดใบมีด SLITTING (WG)")
+st.caption("ระบบเชื่อมต่อข้อมูล Google Sheet อัปเดตอัตโนมัติ | พัฒนาสำหรับชุดใบมีด SLITTING (WG)")
