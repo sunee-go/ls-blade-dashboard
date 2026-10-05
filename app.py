@@ -268,7 +268,7 @@ with tab1:
             target_val = 216 if '08' in machine else 288
             
             # วาดเส้นแนวนอน (hline)
-            fig_od.add_hline(y=target_val, line_dash="dot", line_color="red", line_width=6, 
+            fig_od.add_hline(y=target_val, line_dash="dot", line_color="red", line_width=4, 
                              row=1, col=col, 
                              annotation_text=f" Target: {target_val}", 
                              annotation_position="bottom right",
