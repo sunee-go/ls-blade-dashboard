@@ -185,7 +185,7 @@ if status_filter: filtered_df = filtered_df[filtered_df["Status"].isin(status_fi
 # 4. Header Section
 # ---------------------------------------------------------
 st.markdown('<div class="main-header">🔪 Executive knife and Monitoring Dashboard</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">ระบบติดตามสภาพหน้าใบมีดสลิตเครื่อง LS-05, LS-06, LS-08 (ดึงข้อมูลล่าสุดจาก Google Sheet ทันที)</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">ระบบติดตาม OD ใบมีดสลิตเครื่อง LS-05, LS-06, LS-08 (ดึงข้อมูลล่าสุดจาก Google Sheet ทันที)</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
 # 5. Executive KPI Summary Cards
@@ -267,7 +267,7 @@ with tab1:
             target_val = 216 if '08' in machine else 288
             
             # วาดเส้นแนวนอน (hline)
-            fig_od.add_hline(y=target_val, line_dash="dot", line_color="red", line_width=4, 
+            fig_od.add_hline(y=target_val, line_dash="dot", line_color="red", line_width=6, 
                              row=1, col=col, 
                              annotation_text=f" Target: {target_val}", 
                              annotation_position="bottom right",
