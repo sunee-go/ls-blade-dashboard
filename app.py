@@ -256,8 +256,9 @@ with tab1:
         fig_od.update_traces(texttemplate='%{text:.2f}', textposition='outside', textfont_color='black')
         fig_od.update_xaxes(matches=None) 
         
-        # ปรับขนาดฟอนต์หัวข้อกราฟย่อย (เช่น เปลี่ยน size=20)
-        fig_od.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1], font=dict(size=20)))
+        # ปรับขนาดฟอนต์หัวข้อกราฟย่อย LS-05, LS-06, LS-08(เช่น เปลี่ยน size=20)
+       # ปรับขนาดฟอนต์หัวข้อกราฟย่อย และเปลี่ยนตัวหนังสือเป็นสีน้ำเงิน
+fig_od.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1], font=dict(size=20, color="#0d6efd")))
         
         # สร้างเส้น Target
         for i, ann in enumerate(fig_od.layout.annotations):
