@@ -184,7 +184,7 @@ if status_filter: filtered_df = filtered_df[filtered_df["Status"].isin(status_fi
 # ---------------------------------------------------------
 # 4. Header Section
 # ---------------------------------------------------------
-st.markdown('<div class="main-header"><img src="data:image/jpeg;base64,วางโค้ดยาวๆทั้งหมดตรงนี้" alt="CS Logo" style="height: 45px; vertical-align: middle; margin-right: 12px; margin-bottom: 5px;"> Executive knife and Monitoring Dashboard</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">⚙️ Executive knife and Monitoring Dashboard</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">ระบบติดตาม OD ใบมีดสลิตเครื่อง LS-05, LS-06, LS-08 (ดึงข้อมูลล่าสุดจาก Google Sheet ทันที)</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
