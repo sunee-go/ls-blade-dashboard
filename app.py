@@ -33,6 +33,15 @@ st.markdown("""
     .kpi-title { font-size: 22px; font-weight: bold; color: #0F172A; }
     .kpi-value { font-size: 20px; font-weight: bold; color: #1E293B; }
     .kpi-sub { font-size: 13px; color: #475569; }
+
+    /* 📱 มือถือแนวตั้ง: ลดขนาดตัวอักษรและระยะขอบให้พอดีจอ */
+    @media (max-width: 640px) {
+        .block-container { padding-left: 0.8rem !important; padding-right: 0.8rem !important; padding-top: 2.5rem !important; }
+        .main-header { font-size: 20px; }
+        .kpi-title { font-size: 16px; }
+        .kpi-value { font-size: 16px; }
+        .kpi-sub { font-size: 12px; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -243,64 +252,67 @@ color_map = {
     "วิกฤต (Critical)": "#EF4444"    # สีแดง
 }
 
+st.caption("🟩 ปกติ (Safe)   🟧 เฝ้าระวัง (Warning)   🟥 วิกฤต (Critical)")
+
+# 📱 วาดกราฟแยกรายเครื่อง วางใน st.columns
+#    - จอคอม: เรียงข้างกัน 3 กราฟ
+#    - มือถือแนวตั้ง: Streamlit จะเรียงต่อกันลงมาเองและกราฟยืดเต็มจอ (ไม่ต้องเลื่อนซ้าย-ขวา)
 with tab1:
     if not filtered_df.empty:
-        fig_od = px.bar(
-            filtered_df, x="Set_No", y="Latest_OD", color="Status", facet_col="Machine",
-            color_discrete_map=color_map, text="Latest_OD",
-            title="ค่า OD หลังเจียรล่าสุดแยกตามชุดใบมีด (mm)",
-            labels={"Set_No": "ชุดใบมีด / หมายเลข", "Latest_OD": "ขนาด OD (mm)"}
-        )
-        
-        # 📌 ปรับทศนิยมเป็น 2 ตำแหน่ง และตัวหนังสือสีดำ
-        fig_od.update_traces(texttemplate='%{text:.2f}', textposition='outside', textfont_color='black')
-        fig_od.update_xaxes(matches=None) 
-        
-        # ปรับขนาดฟอนต์หัวข้อกราฟย่อย LS-05, LS-06, LS-08(เช่น เปลี่ยน size=20)
-       # ปรับขนาดฟอนต์หัวข้อกราฟย่อย และเปลี่ยนตัวหนังสือเป็นสีน้ำเงิน
-        fig_od.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1], font=dict(size=20, color="#0d6efd")))
-        
-        # สร้างเส้น Target
-        for i, ann in enumerate(fig_od.layout.annotations):
-            machine = ann.text
-            col = i + 1
-            # กำหนดค่าตัวเลขเส้น Target
+        machines_in_view = sorted(filtered_df["Machine"].unique())
+        cols = st.columns(len(machines_in_view))
+        for col, machine in zip(cols, machines_in_view):
+            m_df = filtered_df[filtered_df["Machine"] == machine]
             target_val = 216 if '08' in machine else 288
-            
-            # วาดเส้นแนวนอน (hline)
-            fig_od.add_hline(y=target_val, line_dash="dot", line_color="red", line_width=4, 
-                             row=1, col=col, 
-                             annotation_text=f" Target: {target_val}", 
+
+            fig_od = px.bar(
+                m_df, x="Set_No", y="Latest_OD", color="Status",
+                color_discrete_map=color_map, text="Latest_OD",
+                title=machine,
+                labels={"Set_No": "ชุดใบมีด / หมายเลข", "Latest_OD": "ขนาด OD (mm)"}
+            )
+            fig_od.update_traces(texttemplate='%{text:.2f}', textposition='outside', textfont_color='black')
+            fig_od.add_hline(y=target_val, line_dash="dot", line_color="red", line_width=4,
+                             annotation_text=f" Target: {target_val}",
                              annotation_position="bottom right",
                              annotation_font_color="black")
-                             
-        fig_od.update_yaxes(range=[180, 330], dtick=20)
-        
-        # 📌 [สำคัญ] กำหนดความกว้าง (width=1200) เพื่อไม่ให้กราฟโดนบีบ
-        fig_od.update_layout(width=1200, height=480, margin=dict(t=50, b=40, l=40, r=40))
-        
-        # 📌 [สำคัญ] ปิดการยืดตามขนาดจอ (use_container_width=False) ทำให้สไลด์ซ้าย-ขวาได้ในมือถือ
-        st.plotly_chart(fig_od, use_container_width=False)
+            fig_od.update_yaxes(range=[180, 330], dtick=20)
+            fig_od.update_xaxes(tickangle=-45)
+            fig_od.update_layout(
+                height=420, showlegend=False,
+                title_font=dict(size=20, color="#0d6efd"),
+                margin=dict(t=50, b=40, l=40, r=10)
+            )
+            with col:
+                st.plotly_chart(fig_od, use_container_width=True)
     else:
         st.warning("ไม่พบข้อมูลตามตัวกรองที่เลือก")
 
 with tab2:
     if not filtered_df.empty:
-        fig_grind = px.bar(
-            filtered_df, x="Set_No", y="Grind_Count", color="Machine", facet_col="Machine",
-            text="Grind_Count", title="จำนวนครั้งการส่งเจียรสะสมแยกตามชุดใบมีด",
-            labels={"Set_No": "ชุดใบมีด / หมายเลข", "Grind_Count": "จำนวนครั้งเจียร"}
-        )
-        # 📌 สีตัวเลขบนกราฟแท่ง
-        fig_grind.update_traces(texttemplate='%{text} ครั้ง', textposition='outside', textfont_color='black')
-        fig_grind.update_xaxes(matches=None)
-        
-        # 📌 [สำคัญ] กำหนดความกว้าง (width=1200) และปิดการยืดตามขนาดจอเช่นเดียวกัน
-        fig_grind.update_layout(width=1200, height=480, margin=dict(t=50, b=40, l=40, r=40))
-        
-        st.plotly_chart(fig_grind, use_container_width=False)
+        machines_in_view = sorted(filtered_df["Machine"].unique())
+        cols = st.columns(len(machines_in_view))
+        for col, machine in zip(cols, machines_in_view):
+            m_df = filtered_df[filtered_df["Machine"] == machine]
+
+            fig_grind = px.bar(
+                m_df, x="Set_No", y="Grind_Count", text="Grind_Count",
+                title=machine,
+                labels={"Set_No": "ชุดใบมีด / หมายเลข", "Grind_Count": "จำนวนครั้งเจียร"},
+                color_discrete_sequence=["#3B82F6"]
+            )
+            fig_grind.update_traces(texttemplate='%{text} ครั้ง', textposition='outside', textfont_color='black')
+            fig_grind.update_xaxes(tickangle=-45)
+            fig_grind.update_layout(
+                height=420, showlegend=False,
+                title_font=dict(size=20, color="#0d6efd"),
+                margin=dict(t=50, b=40, l=40, r=10)
+            )
+            with col:
+                st.plotly_chart(fig_grind, use_container_width=True)
     else:
         st.warning("ไม่พบข้อมูลตามตัวกรองที่เลือก")
+
 # ---------------------------------------------------------
 # 7. Action Plan & Detailed Risk Table
 # ---------------------------------------------------------
