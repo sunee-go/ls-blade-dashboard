@@ -78,12 +78,16 @@ def format_set_name(machine, set_no, color, thickness):
 
 @st.cache_data(ttl=60)
 def load_data():
+    log = []   # เก็บบันทึกการโหลดข้อมูล ไว้แสดงในแถบ "ตรวจสอบการโหลดข้อมูล"
     try:
         xls = pd.read_excel(EXCEL_URL, sheet_name=None, skiprows=3, engine='openpyxl')
         processed_data = []
+        log.append(f"อ่านไฟล์ Google Sheet สำเร็จ พบแท็บทั้งหมด: {[str(n) for n in xls.keys()]}")
         
         for sheet_name, df in xls.items():
-            if not str(sheet_name).startswith("LS-"): continue
+            if not str(sheet_name).startswith("LS-"):
+                log.append(f"⏭️ ข้ามแท็บ '{sheet_name}' (ชื่อไม่ได้ขึ้นต้นด้วย LS-)")
+                continue
             df.columns = [str(c).strip() for c in df.columns]
             
             col_map = {}
@@ -95,7 +99,9 @@ def load_data():
                 elif 'ผู้เจียร์' in c: col_map[c] = 'Inspector'
                 
             df = df.rename(columns=col_map)
-            if 'Raw_Set_No' not in df.columns or 'OD' not in df.columns: continue
+            if 'Raw_Set_No' not in df.columns or 'OD' not in df.columns:
+                log.append(f"❌ แท็บ '{sheet_name}' ไม่พบคอลัมน์ที่ต้องใช้ (ต้องมีคำว่า 'หมายเลข' และ 'OD หลังเจียร์') | หัวตารางที่อ่านได้: {list(df.columns)}")
+                continue
             
             df = df.dropna(subset=['Raw_Set_No', 'OD'])
             df['Raw_Set_No'] = df['Raw_Set_No'].astype(str).str.strip()
@@ -103,6 +109,7 @@ def load_data():
             df = df[df['Raw_Set_No'] != '']
             df['OD'] = pd.to_numeric(df['OD'], errors='coerce')
             df = df.dropna(subset=['OD'])
+            log.append(f"✅ แท็บ '{sheet_name}' อ่านได้ {len(df)} แถวที่มีตัวเลข OD")
             
             machine_name = sheet_name.strip().upper()
             df['Color'] = df.get('Color', '')
@@ -146,11 +153,13 @@ def load_data():
                     
             final_df['Status'] = final_df.apply(calc_status, axis=1)
             final_df = final_df.sort_values(by=['Machine', 'Set_No']).reset_index(drop=True)
-            return final_df
+            return final_df, log
+        else:
+            log.append("⚠️ ไม่มีแท็บไหนมีข้อมูลที่ใช้ได้ จึงใช้ข้อมูลสำรอง")
             
     except Exception as e:
         print("Error pulling data:", e)
-        pass 
+        log.append(f"⚠️ ดึง Google Sheet ไม่สำเร็จ ใช้ข้อมูลสำรองแทน | สาเหตุ: {e}")
         
     # ข้อมูลสำลองกรณีเน็ตหลุด/อ่านไฟล์ไม่รอด (ปรับตัวเลขให้ตรงเงื่อนไขทดสอบแล้ว)
     fallback_data = [
@@ -160,9 +169,9 @@ def load_data():
         {"Machine": "LS-08", "Set_No": "1-31 (5 mm.)", "Color": "-", "Thickness_mm": 5, "Grind_Count": 0, "Latest_OD": 225.0, "OD_MIN": 216.0, "Margin": 9.0, "Status": "เฝ้าระวัง (Warning)", "Inspector": "-"},
         {"Machine": "LS-08", "Set_No": "32-62 (5 mm.)", "Color": "-", "Thickness_mm": 5, "Grind_Count": 0, "Latest_OD": 218.0, "OD_MIN": 216.0, "Margin": 2.0, "Status": "วิกฤต (Critical)", "Inspector": "-"}
     ]
-    return pd.DataFrame(fallback_data)
+    return pd.DataFrame(fallback_data), log
 
-df = load_data()
+df, load_log = load_data()
 
 # ---------------------------------------------------------
 # 3. Sidebar Filters & Search
@@ -178,6 +187,10 @@ machine_filter = st.sidebar.multiselect("เลือกเครื่องจ
 
 status_options = ["ปกติ (Safe)", "เฝ้าระวัง (Warning)", "วิกฤต (Critical)"]
 status_filter = st.sidebar.multiselect("เลือกสถานะ (Status):", options=status_options, default=status_options)
+
+with st.sidebar.expander("🛠️ ตรวจสอบการโหลดข้อมูล"):
+    for line in load_log:
+        st.write(line)
 
 filtered_df = df.copy()
 
