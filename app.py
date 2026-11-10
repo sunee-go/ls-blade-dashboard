@@ -80,7 +80,7 @@ def format_set_name(machine, set_no, color, thickness):
 def load_data():
     log = []   # เก็บบันทึกการโหลดข้อมูล ไว้แสดงในแถบ "ตรวจสอบการโหลดข้อมูล"
     try:
-        xls = pd.read_excel(EXCEL_URL, sheet_name=None, skiprows=3, engine='openpyxl')
+        xls = pd.read_excel(EXCEL_URL, sheet_name=None, header=None, engine='openpyxl')
         processed_data = []
         log.append(f"อ่านไฟล์ Google Sheet สำเร็จ พบแท็บทั้งหมด: {[str(n) for n in xls.keys()]}")
         
@@ -88,8 +88,39 @@ def load_data():
             if not str(sheet_name).startswith("LS-"):
                 log.append(f"⏭️ ข้ามแท็บ '{sheet_name}' (ชื่อไม่ได้ขึ้นต้นด้วย LS-)")
                 continue
-            df.columns = [str(c).strip() for c in df.columns]
-            
+            raw = df.reset_index(drop=True)
+
+            # 🔎 หาแถวหัวตารางอัตโนมัติ (ไม่ต้องเดาว่าอยู่แถวที่เท่าไหร่)
+            header_idx = None
+            for i in range(min(15, len(raw))):
+                cells = [str(v) for v in raw.iloc[i].tolist()]
+                if any('หมายเลข' in t for t in cells) and any('OD หลังเจียร์' in t for t in cells):
+                    header_idx = i
+                    break
+
+            if header_idx is not None:
+                df = raw.iloc[header_idx + 1:].copy()
+                names = [str(v).strip() for v in raw.iloc[header_idx].tolist()]
+                log.append(f"🔎 แท็บ '{sheet_name}': พบหัวตารางที่แถวที่ {header_idx + 1}")
+            else:
+                # ไม่พบแถวหัวตาราง -> ใช้ตำแหน่งคอลัมน์ตามรูปแบบเดียวกับชีต
+                # (คอลัมน์ที่ 3=หมายเลข, 5=ชุดสี, 6=ความหนา, 8=OD หลังเจียร์, 10=ผู้เจียร์)
+                df = raw.copy()
+                pos_map = {2: 'หมายเลข', 4: 'ชุดสี', 5: 'หนา', 7: 'OD หลังเจียร์', 9: 'ผู้เจียร์'}
+                names = [pos_map.get(i, f'col{i}') for i in range(raw.shape[1])]
+                log.append(f"🔎 แท็บ '{sheet_name}': ไม่พบแถวหัวตาราง จึงอ่านตามตำแหน่งคอลัมน์แทน")
+
+            # กันชื่อคอลัมน์ซ้ำ
+            seen, uniq = {}, []
+            for n in names:
+                if n in seen:
+                    seen[n] += 1
+                    uniq.append(f"{n}.{seen[n]}")
+                else:
+                    seen[n] = 0
+                    uniq.append(n)
+            df.columns = uniq
+
             col_map = {}
             for c in df.columns:
                 if 'หมายเลข' in c: col_map[c] = 'Raw_Set_No'
